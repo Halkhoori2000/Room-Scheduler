@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Room Scheduler</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Tahoma, sans-serif; background: #c0c0c0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px 0; }
+
+    #app { width: 1024px; min-height: 768px; background: white; border: 2px solid #888; box-shadow: 3px 3px 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+
+    /* ── Menu Bar ── */
+    #menubar { background: #e8e8e8; border-bottom: 1px solid #aaa; display: flex; align-items: stretch; position: relative; user-select: none; }
+    .menu-root { position: relative; }
+    .menu-root-label { padding: 4px 14px; font-size: 13px; cursor: pointer; height: 100%; display: flex; align-items: center; }
+    .menu-root-label:hover, .menu-root-label.open { background: #3875d7; color: white; }
+    .dropdown { display: none; position: absolute; top: 100%; left: 0; background: #f0f0f0; border: 1px solid #aaa; min-width: 160px; z-index: 500; box-shadow: 2px 2px 5px rgba(0,0,0,0.25); }
+    .dropdown.show { display: block; }
+    .dd-item { padding: 6px 18px; font-size: 13px; cursor: pointer; white-space: nowrap; display: flex; align-items: center; justify-content: space-between; }
+    .dd-item:hover { background: #3875d7; color: white; }
+    .dd-item.has-sub::after { content: '▶'; font-size: 10px; margin-left: 12px; }
+    .submenu-wrap { position: relative; }
+    .submenu-wrap .dropdown { left: 100%; top: 0; }
+    .submenu-wrap:hover .dropdown { display: block; }
+
+    /* ── Main Content ── */
+    #main { flex: 1; position: relative; overflow: hidden; background: white; }
+    .panel { display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: white; }
+    .panel.active { display: flex; flex-direction: column; }
+
+    /* ── Panel Title ── */
+    .panel-title { font-size: 24px; font-weight: bold; text-align: center; padding: 20px 0 0 0; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+
+    /* ── Form Panels ── */
+    .form-body { display: flex; flex-direction: column; align-items: center; padding-top: 59px; flex: 1; }
+    .form-row { display: flex; align-items: center; margin-bottom: 40px; }
+    .form-label { font-size: 14px; text-align: right; width: 161px; margin-right: 61px; }
+    .form-ctrl { font-size: 14px; font-family: Tahoma, sans-serif; height: 35px; padding: 2px 6px; border: 1px solid #888; width: 241px; }
+    .form-ctrl:focus { outline: 1px solid #3875d7; }
+    .form-btns { display: flex; gap: 18px; }
+
+    /* ── Buttons ── */
+    .btn { font-family: Tahoma, sans-serif; font-size: 14px; font-weight: bold; height: 35px; padding: 0 12px; border: 1px solid #aaa; background: linear-gradient(to bottom, #f5f5f5, #d8d8d8); cursor: pointer; display: flex; align-items: center; gap: 5px; min-width: 113px; white-space: nowrap; }
+    .btn:hover { background: linear-gradient(to bottom, #dce8f8, #b0c8e8); border-color: #5588bb; }
+    .btn:active { background: linear-gradient(to bottom, #ccc, #eee); }
+    .btn-sm { min-width: 0; font-size: 13px; height: 35px; font-weight: normal; padding: 0 16px; }
+    .btn-sm.wide { min-width: 170px; }
+
+    /* ── Reservation List ── */
+    #pnlReservationList { display: none; }
+    .filter-bar { display: flex; align-items: center; gap: 8px; padding: 8px 36px; background: #f0f0f0; border-bottom: 1px solid #ccc; flex-shrink: 0; }
+    .filter-bar label { font-size: 14px; text-align: right; white-space: nowrap; }
+    .filter-bar select { font-family: Tahoma, sans-serif; font-size: 13px; height: 34px; padding: 2px 4px; border: 1px solid #aaa; }
+    #filterFaculty { width: 120px; }
+    #filterDate    { width: 136px; }
+    #filterRoom    { width: 106px; }
+    #filterStatus  { width: 106px; }
+    .tbl-wrap { flex: 1; overflow-y: auto; border: 1px solid #ccc; margin: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; font-family: Tahoma, sans-serif; }
+    thead tr { background: #dde3ee; }
+    th { padding: 6px 8px; border: 1px solid #bbb; font-size: 13px; text-align: left; white-space: nowrap; }
+    td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+    tr.selected td { background: #3875d7 !important; color: white; }
+    tr:nth-child(even) td { background: #f5f7fc; }
+    tr:hover:not(.selected) td { background: #dce8f8; cursor: pointer; }
+    .list-footer { display: flex; justify-content: flex-end; gap: 48px; padding: 22px 38px; border-top: 1px solid #ddd; flex-shrink: 0; }
+
+    /* ── Room List ── */
+    #pnlRoomList { display: none; }
+
+    /* ── Status ── */
+    .s-active  { color: #116611; font-weight: bold; }
+    .s-waiting { color: #bb5500; font-weight: bold; }
+
+    /* ── Dialog ── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 999; justify-content: center; align-items: center; }
+    .overlay.show { display: flex; }
+    .dialog { background: #ececec; border: 2px solid #888; min-width: 340px; max-width: 520px; padding: 20px 24px; font-family: Tahoma, sans-serif; box-shadow: 4px 4px 12px rgba(0,0,0,0.4); }
+    .dialog-title { font-weight: bold; font-size: 14px; margin-bottom: 14px; border-bottom: 1px solid #bbb; padding-bottom: 8px; }
+    .dialog-msg { font-size: 13px; margin-bottom: 18px; white-space: pre-wrap; line-height: 1.5; }
+    .dialog-footer { display: flex; justify-content: flex-end; gap: 10px; }
+    .d-btn { font-family: Tahoma, sans-serif; font-size: 13px; height: 28px; padding: 0 20px; border: 1px solid #aaa; background: linear-gradient(to bottom, #f5f5f5, #d8d8d8); cursor: pointer; }
+    .d-btn:hover { background: linear-gradient(to bottom, #dce8f8, #b0c8e8); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Menu Bar ── -->
+  <div id="menubar">
+    <div class="menu-root" id="menuRoot">
+      <div class="menu-root-label" id="menuLabel" onclick="toggleMenu()">Menu</div>
+      <div class="dropdown" id="menuDropdown">
+        <div class="submenu-wrap">
+          <div class="dd-item has-sub">New</div>
+          <div class="dropdown">
+            <div class="dd-item" onclick="nav('pnlAddFaculty')">Faculty</div>
+            <div class="dd-item" onclick="navReserve()">Reservation</div>
+            <div class="dd-item" onclick="nav('pnlAddRoom')">Room</div>
+            <div class="dd-item" onclick="nav('pnlAddDate')">Date</div>
+          </div>
+        </div>
+        <div class="submenu-wrap">
+          <div class="dd-item has-sub">List</div>
+          <div class="dropdown">
+            <div class="dd-item" onclick="navReservationList()">Reservation List</div>
+            <div class="dd-item" onclick="navRoomList()">Room List</div>
+          </div>
+        </div>
+        <div class="dd-item" onclick="quitApp()">Quit</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div id="main">
+
+    <!-- Reservation List -->
+    <div class="panel" id="pnlReservationList">
+      <div class="panel-title">Reservation List</div>
+      <div class="filter-bar">
+        <label>Faculty:</label>
+        <select id="filterFaculty" onchange="renderReservations()"></select>
+        <label style="margin-left:10px;">Date:</label>
+        <select id="filterDate" onchange="renderReservations()"></select>
+        <label style="margin-left:10px;">Room:</label>
+        <select id="filterRoom" onchange="renderReservations()"></select>
+        <label style="margin-left:10px;">Status:</label>
+        <select id="filterStatus" onchange="renderReservations()">
+          <option value="">All</option>
+          <option value="active">Active</option>
+          <option value="waiting">Waiting</option>
+        </select>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Faculty</th><th>Room</th><th>Date</th><th>Seats</th><th>Status</th><th>Date Requested</th></tr></thead>
+          <tbody id="tblResBody"></tbody>
+        </table>
+      </div>
+      <div class="list-footer">
+        <button class="btn btn-sm wide" onclick="navReserve()">&#10010; New Reservation</button>
+        <button class="btn btn-sm wide" onclick="cancelSelectedRes()">&#128465; Cancel Reservation</button>
+      </div>
+    </div>
+
+    <!-- Add Faculty -->
+    <div class="panel" id="pnlAddFaculty">
+      <div class="panel-title">Add Faculty</div>
+      <div class="form-body">
+        <div class="form-row">
+          <label class="form-label">Faculty Name:</label>
+          <input class="form-ctrl" id="txtFacultyName" type="text" />
+        </div>
+        <div class="form-btns">
+          <button class="btn" onclick="addFaculty()">&#10010; Add</button>
+          <button class="btn" onclick="navReservationList()">&#10006; Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Room -->
+    <div class="panel" id="pnlAddRoom">
+      <div class="panel-title">Add Room</div>
+      <div class="form-body">
+        <div class="form-row">
+          <label class="form-label">Room Name:</label>
+          <input class="form-ctrl" id="txtRoomName" type="text" />
+        </div>
+        <div class="form-row" style="margin-bottom:60px;">
+          <label class="form-label">Seats:</label>
+          <input class="form-ctrl" id="txtRoomSeats" type="number" value="30" min="1" />
+        </div>
+        <div class="form-btns">
+          <button class="btn" onclick="addRoom()">&#10010; Add</button>
+          <button class="btn" onclick="navRoomList()">&#10006; Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reserve Room -->
+    <div class="panel" id="pnlReserveRoom">
+      <div class="panel-title">Reserve Room</div>
+      <div class="form-body" style="padding-top:48px;">
+        <div class="form-row">
+          <label class="form-label">Faculty:</label>
+          <select class="form-ctrl" id="cbxFaculty"></select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Date:</label>
+          <select class="form-ctrl" id="cbxDate"></select>
+        </div>
+        <div class="form-row" style="margin-bottom:62px;">
+          <label class="form-label">Seats Number:</label>
+          <input class="form-ctrl" id="txtSeats" type="number" value="30" min="1" />
+        </div>
+        <div class="form-btns">
+          <button class="btn" onclick="makeReservation()">&#10010; Reserve</button>
+          <button class="btn" onclick="navReservationList()">&#10006; Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room List -->
+    <div class="panel" id="pnlRoomList">
+      <div class="panel-title">Room List</div>
+      <div class="tbl-wrap" style="margin-top:0; flex:1;">
+        <table>
+          <thead><tr><th>Name</th><th>Seats</th></tr></thead>
+          <tbody id="tblRoomBody"></tbody>
+        </table>
+      </div>
+      <div class="list-footer">
+        <button class="btn btn-sm wide" onclick="nav('pnlAddRoom')">&#10010; Add Room</button>
+        <button class="btn btn-sm wide" onclick="deleteSelectedRoom()">&#128465; Delete Room</button>
+      </div>
+    </div>
+
+    <!-- Add Date -->
+    <div class="panel" id="pnlAddDate">
+      <div class="panel-title">Add Date</div>
+      <div class="form-body" style="padding-top:39px;">
+        <div class="form-row">
+          <label class="form-label">Select Date:</label>
+          <input class="form-ctrl" id="dateNewDate" type="date" />
+        </div>
+        <div class="form-btns">
+          <button class="btn" onclick="addDate()">&#10010; Add</button>
+          <button class="btn" onclick="navReservationList()">&#10006; Cancel</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Dialog -->
+<div class="overlay" id="overlay">
+  <div class="dialog">
+    <div class="dialog-title" id="dlgTitle"></div>
+    <div class="dialog-msg"   id="dlgMsg"></div>
+    <div class="dialog-footer" id="dlgFoot"></div>
+  </div>
+</div>
+
+<script>
+// ── Storage ──────────────────────────────────────────────────────────────────
+const DB = {
+  get: k => JSON.parse(localStorage.getItem(k) || '[]'),
+  set: (k,v) => localStorage.setItem(k, JSON.stringify(v)),
+  nextId: k => { const a = DB.get(k); return a.length ? Math.max(...a.map(x=>x.id))+1 : 1; }
+};
+
+// ── Dialog ───────────────────────────────────────────────────────────────────
+function dlg(title, msg, buttons) {
+  document.getElementById('dlgTitle').textContent = title;
+  document.getElementById('dlgMsg').textContent   = msg;
+  const foot = document.getElementById('dlgFoot');
+  foot.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.className = 'd-btn';
+    btn.textContent = b.label;
+    btn.onclick = () => { closeDlg(); b.fn && b.fn(); };
+    foot.appendChild(btn);
+  });
+  document.getElementById('overlay').classList.add('show');
+}
+const closeDlg  = () => document.getElementById('overlay').classList.remove('show');
+const info      = msg => dlg('Information', msg, [{label:'OK'}]);
+const warn      = msg => dlg('Warning', msg, [{label:'OK'}]);
+const confirm2  = (msg, fn) => dlg('Confirm', msg, [{label:'Yes', fn}, {label:'No'}]);
+
+// ── Menu ─────────────────────────────────────────────────────────────────────
+function toggleMenu() {
+  const d = document.getElementById('menuDropdown');
+  const l = document.getElementById('menuLabel');
+  d.classList.toggle('show');
+  l.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#menuRoot')) {
+    document.getElementById('menuDropdown').classList.remove('show');
+    document.getElementById('menuLabel').classList.remove('open');
+  }
+});
+function quitApp() {
+  confirm2('Exit the Room Scheduler?', () => document.getElementById('app').innerHTML = '<p style="padding:40px;font-family:Tahoma;font-size:16px;">Application closed. Refresh to restart.</p>');
+}
+
+// ── Panel Nav ─────────────────────────────────────────────────────────────────
+function nav(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('menuDropdown').classList.remove('show');
+  document.getElementById('menuLabel').classList.remove('open');
+}
+
+function navReservationList() {
+  populateFilterDropdowns();
+  nav('pnlReservationList');
+  renderReservations();
+}
+
+function navRoomList() {
+  nav('pnlRoomList');
+  renderRoomTable();
+}
+
+function navReserve() {
+  const faculty = DB.get('faculty');
+  const dates   = DB.get('dates');
+  if (!faculty.length) { warn('No faculty available. Please add faculty first.'); return; }
+  if (!dates.length)   { warn('No dates available. Please add a date first.');    return; }
+  document.getElementById('cbxFaculty').innerHTML = faculty.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+  document.getElementById('cbxDate').innerHTML    = dates.map(d => `<option value="${d.id}">${d.date}</option>`).join('');
+  document.getElementById('txtSeats').value = 30;
+  nav('pnlReserveRoom');
+}
+
+// ── Faculty ───────────────────────────────────────────────────────────────────
+function addFaculty() {
+  const name = document.getElementById('txtFacultyName').value.trim();
+  if (!name) { warn('Please fill all fields.'); return; }
+  const all = DB.get('faculty');
+  if (all.find(f => f.name.toLowerCase() === name.toLowerCase())) { warn('Faculty member already exists.'); return; }
+  all.push({ id: DB.nextId('faculty'), name });
+  DB.set('faculty', all);
+  document.getElementById('txtFacultyName').value = '';
+  info(`Faculty "${name}" added successfully.`);
+  navReservationList();
+}
+
+// ── Rooms ─────────────────────────────────────────────────────────────────────
+function addRoom() {
+  const name  = document.getElementById('txtRoomName').value.trim();
+  const seats = parseInt(document.getElementById('txtRoomSeats').value);
+  if (!name || isNaN(seats) || seats < 1) { warn('Please fill all fields correctly.'); return; }
+  const id = DB.nextId('rooms');
+  const all = DB.get('rooms');
+  all.push({ id, name, seats, status: 'active' });
+  DB.set('rooms', all);
+  promoteWaitlistForNewRoom(id, seats);
+  document.getElementById('txtRoomName').value  = '';
+  document.getElementById('txtRoomSeats').value = 30;
+  navRoomList();
+}
+
+function deleteSelectedRoom() {
+  const row = document.querySelector('#tblRoomBody tr.selected');
+  if (!row) { warn('Please select a room to delete.'); return; }
+  const roomId = +row.dataset.id;
+  const room   = DB.get('rooms').find(r => r.id === roomId);
+  confirm2(`Drop room "${room.name}"?\nAll reservations will be reassigned or waitlisted.`, () => {
+    dropRoom(roomId);
+    navRoomList();
+  });
+}
+
+function dropRoom(roomId) {
+  const reservations = DB.get('reservations');
+  const rooms        = DB.get('rooms');
+  const msgs         = [];
+  reservations.filter(r => r.roomId === roomId && r.status === 'active').forEach(res => {
+    res.roomId = null;
+    res.status = 'waiting';
+    const room2 = bestFit(res.dateId, res.seats, roomId);
+    if (room2) {
+      res.roomId = room2.id;
+      res.status = 'active';
+      const fac = DB.get('faculty').find(f => f.id === res.facultyId);
+      msgs.push(`${fac.name} reassigned to Room ${room2.name}.`);
+    } else {
+      const fac = DB.get('faculty').find(f => f.id === res.facultyId);
+      msgs.push(`${fac.name} could not be reassigned and has been placed on the waitlist.`);
+    }
+  });
+  const room = rooms.find(r => r.id === roomId);
+  if (room) room.status = 'inactive';
+  DB.set('rooms', rooms);
+  DB.set('reservations', reservations);
+  if (msgs.length) info(msgs.join('\n'));
+}
+
+function renderRoomTable() {
+  const rooms = DB.get('rooms').filter(r => r.status === 'active');
+  document.getElementById('tblRoomBody').innerHTML = rooms.map(r =>
+    `<tr data-id="${r.id}" onclick="selectRow(this,'tblRoomBody')"><td>${r.name}</td><td>${r.seats}</td></tr>`
+  ).join('');
+}
+
+// ── Dates ─────────────────────────────────────────────────────────────────────
+function addDate() {
+  const val = document.getElementById('dateNewDate').value;
+  if (!val) { warn('Please select a day!!'); return; }
+  const sel   = new Date(val + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (sel < today) { warn('Invalid date. Date must be equal to or greater than the current date.\nPlease select another day!!'); return; }
+  const all = DB.get('dates');
+  if (all.find(d => d.date === val)) { warn('This date already exists.'); return; }
+  all.push({ id: DB.nextId('dates'), date: val });
+  DB.set('dates', all);
+  info(`Date "${val}" added successfully.`);
+  navReservationList();
+}
+
+// ── Business Logic ────────────────────────────────────────────────────────────
+function bestFit(dateId, seats, excludeRoomId = null) {
+  const reserved = new Set(
+    DB.get('reservations').filter(r => r.dateId === dateId && r.status === 'active').map(r => r.roomId)
+  );
+  const rooms = DB.get('rooms')
+    .filter(r => r.status === 'active' && r.seats >= seats && r.id !== excludeRoomId && !reserved.has(r.id));
+  rooms.sort((a, b) => a.seats - b.seats);
+  return rooms[0] || null;
+}
+
+function activateWaitlist(dateId) {
+  const reservations = DB.get('reservations');
+  const waiting = reservations
+    .filter(r => r.dateId === dateId && r.status === 'waiting')
+    .sort((a, b) => new Date(a.dateRequested) - new Date(b.dateRequested));
+  const promoted = [];
+  waiting.forEach(res => {
+    const room = bestFit(dateId, res.seats);
+    if (room) { res.roomId = room.id; res.status = 'active'; promoted.push(res); }
+  });
+  DB.set('reservations', reservations);
+  return promoted;
+}
+
+function promoteWaitlistForNewRoom(roomId, seats) {
+  const reservations = DB.get('reservations');
+  const usedDates    = new Set();
+  reservations
+    .filter(r => r.status === 'waiting' && r.seats <= seats)
+    .sort((a, b) => new Date(a.dateRequested) - new Date(b.dateRequested))
+    .forEach(res => {
+      if (usedDates.has(res.dateId)) return;
+      const taken = reservations.find(r => r.roomId === roomId && r.dateId === res.dateId && r.status === 'active');
+      if (!taken) { res.roomId = roomId; res.status = 'active'; usedDates.add(res.dateId); }
+    });
+  DB.set('reservations', reservations);
+}
+
+// ── Reservations ──────────────────────────────────────────────────────────────
+function makeReservation() {
+  const facultyId = +document.getElementById('cbxFaculty').value;
+  const dateId    = +document.getElementById('cbxDate').value;
+  const seats     = parseInt(document.getElementById('txtSeats').value);
+  if (!facultyId || !dateId || isNaN(seats) || seats < 1) { warn('Please fill all fields.'); return; }
+
+  const existing = DB.get('reservations').find(r => r.facultyId === facultyId && r.dateId === dateId);
+  if (existing) {
+    const fac  = DB.get('faculty').find(f => f.id === facultyId);
+    const date = DB.get('dates').find(d => d.id === dateId);
+    confirm2(`"${fac.name}" already has a reservation for ${date.date}.\nUpdate it?`, () => {
+      const res = DB.get('reservations');
+      res.splice(res.findIndex(r => r.id === existing.id), 1);
+      DB.set('reservations', res);
+      activateWaitlist(dateId);
+      insertReservation(facultyId, dateId, seats);
+      navReservationList();
+    });
+  } else {
+    insertReservation(facultyId, dateId, seats);
+    navReservationList();
+  }
+}
+
+function insertReservation(facultyId, dateId, seats) {
+  const room  = bestFit(dateId, seats);
+  const entry = {
+    id: DB.nextId('reservations'),
+    facultyId, dateId, seats,
+    roomId: room ? room.id : null,
+    status: room ? 'active' : 'waiting',
+    dateRequested: new Date().toISOString()
+  };
+  const all = DB.get('reservations');
+  all.push(entry);
+  DB.set('reservations', all);
+  const fac  = DB.get('faculty').find(f => f.id === facultyId);
+  const date = DB.get('dates').find(d => d.id === dateId);
+  const rn   = room ? room.name : '— (Waitlisted)';
+  info(`Reservation added:\nFaculty: ${fac.name}\nDate:    ${date.date}\nRoom:    ${rn}\nSeats:   ${seats}\nStatus:  ${entry.status.charAt(0).toUpperCase()+entry.status.slice(1)}`);
+}
+
+function cancelSelectedRes() {
+  const row = document.querySelector('#tblResBody tr.selected');
+  if (!row) { warn('Please select a reservation to cancel.'); return; }
+  const resId = +row.dataset.id;
+  const res   = DB.get('reservations').find(r => r.id === resId);
+  const fac   = DB.get('faculty').find(f => f.id === res.facultyId);
+  const date  = DB.get('dates').find(d => d.id === res.dateId);
+  confirm2(`Cancel reservation for "${fac.name}" on ${date.date}?`, () => {
+    const all = DB.get('reservations');
+    const idx = all.findIndex(r => r.id === resId);
+    const dateId = all[idx].dateId;
+    all.splice(idx, 1);
+    DB.set('reservations', all);
+    const promoted = activateWaitlist(dateId);
+    let msg = 'Reservation cancelled.';
+    if (promoted.length) {
+      msg += '\n\nWaiting reservations now active:';
+      promoted.forEach(p => {
+        const f  = DB.get('faculty').find(x => x.id === p.facultyId);
+        const rm = DB.get('rooms').find(x => x.id === p.roomId);
+        msg += `\n  ${f.name} → Room ${rm.name}`;
+      });
+    }
+    info(msg);
+    navReservationList();
+  });
+}
+
+// ── Filters & Render ──────────────────────────────────────────────────────────
+function populateFilterDropdowns() {
+  const faculty = DB.get('faculty');
+  const dates   = DB.get('dates');
+  const rooms   = DB.get('rooms').filter(r => r.status === 'active');
+  const all     = '<option value="">All</option>';
+  document.getElementById('filterFaculty').innerHTML = all + faculty.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+  document.getElementById('filterDate').innerHTML    = all + dates.map(d => `<option value="${d.id}">${d.date}</option>`).join('');
+  document.getElementById('filterRoom').innerHTML    = all + rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+}
+
+function renderReservations() {
+  const fId  = document.getElementById('filterFaculty').value;
+  const dId  = document.getElementById('filterDate').value;
+  const rId  = document.getElementById('filterRoom').value;
+  const stat = document.getElementById('filterStatus').value;
+
+  let list = DB.get('reservations');
+  if (fId)  list = list.filter(r => r.facultyId == fId);
+  if (dId)  list = list.filter(r => r.dateId    == dId);
+  if (rId)  list = list.filter(r => r.roomId    == rId);
+  if (stat) list = list.filter(r => r.status    === stat);
+
+  const faculty = DB.get('faculty');
+  const dates   = DB.get('dates');
+  const rooms   = DB.get('rooms');
+
+  list.sort((a, b) => {
+    const da = dates.find(d => d.id === a.dateId)?.date || '';
+    const db = dates.find(d => d.id === b.dateId)?.date || '';
+    return da.localeCompare(db) || new Date(a.dateRequested) - new Date(b.dateRequested);
+  });
+
+  document.getElementById('tblResBody').innerHTML = list.map(r => {
+    const f  = faculty.find(x => x.id === r.facultyId);
+    const d  = dates.find(x => x.id === r.dateId);
+    const rm = rooms.find(x => x.id === r.roomId);
+    const sc = r.status === 'active' ? 's-active' : 's-waiting';
+    const st = r.status.charAt(0).toUpperCase() + r.status.slice(1);
+    const dr = new Date(r.dateRequested).toLocaleString();
+    return `<tr data-id="${r.id}" onclick="selectRow(this,'tblResBody')">
+      <td>${f?.name||''}</td>
+      <td>${rm?.name||'—'}</td>
+      <td>${d?.date||''}</td>
+      <td>${r.seats}</td>
+      <td class="${sc}">${st}</td>
+      <td>${dr}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Row Selection ─────────────────────────────────────────────────────────────
+function selectRow(row, tbodyId) {
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(r => r.classList.remove('selected'));
+  row.classList.add('selected');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+navReservationList();
+</script>
+</body>
+</html>
