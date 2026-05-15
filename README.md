@@ -4,6 +4,8 @@ A room reservation system originally built as a Java Swing desktop application w
 
 **[Live Demo](https://halkhoori2000.github.io/Room-Scheduler/)**
 
+![Room Scheduler Preview](screenshots/preview.png)
+
 ---
 
 ## Overview
