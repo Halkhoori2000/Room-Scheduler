@@ -1,6 +1,8 @@
 # Room Scheduler
 
-A room reservation system originally built as a Java Swing desktop application with Apache Derby DB (CMPSC 221, Penn State — Summer 2021), rebuilt as a fully interactive browser app using HTML, CSS, and JavaScript with localStorage.
+A tool for managing room bookings across a building. Administrators can add rooms with seat capacities, assign faculty to rooms on specific dates, and the system automatically picks the most space-efficient room available. If no suitable room is free, the request is placed on a waiting list and automatically fulfilled when a cancellation opens up.
+
+Originally built as a Java desktop application with a SQL database, then rebuilt as a fully interactive browser app — the same logic runs entirely in the browser with no server required.
 
 **[Live Demo](https://halkhoori2000.github.io/Room-Scheduler/)**
 
