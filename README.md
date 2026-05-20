@@ -8,6 +8,17 @@ Originally built as a Java desktop application with a SQL database, then rebuilt
 
 ![Room Scheduler Preview](screenshots/preview.png)
 
+## Use Cases
+- University classroom and lab allocation across academic schedules
+- Corporate meeting room booking with seat capacity and equipment constraints
+- Conference facility management where a fixed pool of rooms serves a rotating pool of requesters
+- Any scheduling system where demand exceeds supply and fair queuing must be enforced automatically
+
+## Challenges
+- **Best-fit assignment**: finding the smallest room that still fits the group without leaving excess capacity unused, while never under-allocating — requires evaluating all available rooms and selecting optimally on every booking
+- **Cascading waitlist promotion**: when a room is deleted or a reservation cancelled, multiple waitlisted entries may become eligible simultaneously — the system must re-run best-fit across all pending requests in FIFO order to correctly fill freed capacity without double-promoting or skipping entries
+- **State consistency across operations**: cancellations, deletions, and new reservations all modify the same waitlist and reservation set — sequencing these correctly so every state transition leaves the system in a valid, consistent state
+
 ---
 
 ## Overview
