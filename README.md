@@ -1,6 +1,6 @@
 # Room Scheduler
 
-*CMPSC 221 — Object-Oriented Programming with Web-Based Applications · Penn State · Summer 2021*
+*CMPSC 221 — Object-Oriented Programming with Web-Based Applications · Penn State · 2021*
 
 A tool for managing room bookings across a building. Administrators can add rooms with seat capacities, assign faculty to rooms on specific dates, and the system automatically picks the most space-efficient room available. If no suitable room is free, the request is placed on a waiting list and automatically fulfilled when a cancellation opens up.
 
